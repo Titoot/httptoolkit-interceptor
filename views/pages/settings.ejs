@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="robots" content="noindex">
+	<base href="/" />
+	<link rel='shortcut icon' type='image/x-icon' href='https://httptoolkit.com/favicon.ico' />
+	<link rel='stylesheet' href='/fonts.css' />
+	<meta name="viewport" content="width=device-width">
+	<title>HTTP Toolkit</title>
+	<style>
+		html,
+		body {
+			height: 100%;
+			overflow: hidden;
+
+			font-family: Lato, Arial, sans-serif;
+		}
+
+		#app-loading-placeholder {
+			position: absolute;
+			top: 0;
+			right: 0;
+			bottom: 0;
+			left: 0;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+		}
+
+		#app:not(:empty)~#app-loading-placeholder {
+			display: none;
+		}
+
+		#initial-logo,
+		#progress-logo {
+			position: absolute;
+		}
+
+		#initial-logo {
+			filter: grayscale()
+		}
+
+		#progress-logo {
+			clip-path: inset(0 100% 0 0);
+			transition: clip-path 0.5s;
+		}
+
+		#app-loading-error {
+			margin-top: 520px;
+			font-weight: bold;
+			font-size: 40pt;
+			text-align: center;
+		}
+
+		#app-loading-error-details {
+			margin-top: 10px;
+			font-size: 20pt;
+		}
+
+		#app {
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="app"></div>
+	<div id="app-loading-placeholder">
+		<img id="initial-logo" src="bafe358ef4e6624aa084910b4107c302.png">
+		<img id="progress-logo" src="bafe358ef4e6624aa084910b4107c302.png">
+		<div id="app-loading-error"></div>
+		<div id="app-loading-error-details"></div>
+	</div>
+
+	<script>
+		const bgColor = localStorage.getItem('theme-background-color') || '#d8e2e6';
+        document.querySelector('html').style.backgroundColor = bgColor;
+
+        let progressElement = document.getElementById('progress-logo');
+        let errorElement = document.getElementById('app-loading-error');
+        let errorDetailsElement = document.getElementById('app-loading-error-details');
+
+        let progress = 0;
+        function setProgress(newProgress) {
+            progress = Math.max(progress, newProgress);
+            progressElement.style.clipPath = 'inset(0 ' + (100 - progress) + '% 0 0)';
+        }
+
+        setTimeout(function () {
+            let appScript = document.scripts[document.scripts.length - 1];
+
+            setTimeout(() => setProgress(10), 100);
+
+            // Fake page loaded -> script loaded progress, since we're blind here.
+            let initialProgressInterval = setInterval(function () {
+                let newProgress = progress + (50 - progress) / 3;
+                setProgress(newProgress);
+            }, 500);
+
+            // Triggered when script has loaded and starts running
+            document.addEventListener('load:executing', function () {
+                clearInterval(initialProgressInterval);
+                setProgress(60);
+            });
+
+            // Triggered when sync code from script has finished
+            appScript.addEventListener('load', function () {
+                setProgress(75);
+            });
+
+            // Triggered when _everything_ is loaded and run
+            window.addEventListener('load', function () {
+                setProgress(90);
+            });
+
+            // The store & Mockttp setup is done, and React is rendering.
+            document.addEventListener('load:rendering', function () {
+                setProgress(100);
+            });
+
+            document.addEventListener('load:failed', function (evt) {
+                setProgress(100);
+
+                let error = evt.error || {};
+
+                if (error.isTimeout) {
+                    errorElement.innerText = 'This is taking longer than normal...';
+                    errorDetailsElement.innerHTML = 'If this persists or happens often ' +
+                        'please <a href="https://github.com/httptoolkit/httptoolkit/issues/new">file an issue</a> ' + 'and help make HTTP Toolkit faster.';
+                } else {
+                    errorElement.innerText = 'Startup failed: "' + error.message + '"';
+                    errorDetailsElement.innerHTML = 'Please ' +
+                        '<a href="https://github.com/httptoolkit/httptoolkit/issues/new">file an issue</a>, ' +
+                        "and we'll get this fixed ASAP";
+                }
+            });
+        }, 0);
+
+        // Tiny polyfill for the only backward compat issue so far with old Electron:
+        if (!window.globalThis) {
+            window.globalThis = window;
+        }
+	</script>
+	<script type="text/javascript" src="vendors~main.bundle.js"></script>
+	<script type="text/javascript" src="app.js"></script>
+</body>
+
+</html>
