@@ -37,13 +37,15 @@ app.get("/app.js", async (req, res) => {
 
         const headResponse = await axios.head('http://app.httptoolkit.tech/app.js');
         const lastModified = Date.parse(headResponse.headers["last-modified"]);
-        console.log(lastModified);
 
         const newApp = path.join(__dirname, 'AppFiles/app_new.js');
         const editedApp = path.join(__dirname, 'AppFiles/app_b.js');
         const oldEditedApp = path.join(__dirname, 'AppFiles/app_b_old.js');
-
-        const thresholdDate = Date.parse("2023-11-01T00:00:00.000Z");
+        let thresholdDate
+        if(fs.existsSync(editedApp)){
+            thresholdDate = Date.parse(fs.statSync(editedApp).mtime)
+        }
+        
 
         if (lastModified < thresholdDate) {
             console.log('Using old app.js file');
@@ -63,11 +65,15 @@ app.get("/app.js", async (req, res) => {
 
         console.log('Downloaded app.js successfully');
 
-        await renameAsync(editedApp, oldEditedApp);
-        console.log('app_b.js was renamed to app_b_old.js successfully');
+        await downloadDependencies();
+        if(fs.existsSync(editedApp))
+        {
+            await renameAsync(editedApp, oldEditedApp);
+            console.log('app_b.js was renamed to app_b_old.js successfully');
+        }
 
         const data = await readFileAsync(newApp, 'utf8');
-        const result = data.replace(/isPaidUser\(\)\{var e;return"past_due"!==.+?this\.isStatusUnexpired/g, 'isPaidUser(){var e;return true');
+        const result = data.replace(/isPaidUser\(\)\{var e;return"past_due"!==.+?this\.isStatusUnexpired/g, 'isPaidUser(){return true;');
 
         if (!result.includes("return true")) {
             console.error('Patching Failed! using original file');
@@ -84,6 +90,34 @@ app.get("/app.js", async (req, res) => {
     }
 });
 
+async function downloadDependencies()
+{
+    const depsPath = path.join(__dirname, 'views');
+    fs.readdir(depsPath, (err, files) => {
+        files.forEach(async file => {
+            const filePath = path.join(depsPath, file);
+            if (fs.statSync(filePath).isDirectory()) {
+                return;
+            }
+            const headResponse = await axios.head(`http://app.httptoolkit.tech/${file}`);
+            const lastModified = Date.parse(headResponse.headers["last-modified"]);
+
+            const thresholdDate = Date.parse(fs.statSync(filePath).mtime)
+
+            if (lastModified < thresholdDate) {
+               return;
+            }
+
+            const response = await axios.get(`http://app.httptoolkit.tech/${file}`, { responseType: 'stream' });
+            const newFile = fs.createWriteStream(filePath);
+            response.data.pipe(newFile);
+
+            console.log(`Downloaded a new version of ${file}`)
+
+        });
+      });
+}
+
 async function checkInternetConnection() {
     try {
         await axios.head('http://www.google.com');
@@ -92,32 +126,5 @@ async function checkInternetConnection() {
         return false;
     }
 }
-
-function renameFile(oldPath, newPath) {
-    return new Promise((resolve, reject) => {
-        fs.rename(oldPath, newPath, (err) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve();
-            }
-        });
-    });
-}
-
-function renameFile(oldPath, newPath) {
-    return new Promise((resolve, reject) => {
-        fs.rename(oldPath, newPath, (err) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve();
-            }
-        });
-    });
-}
-
-    
-
 
 module.exports = app;
