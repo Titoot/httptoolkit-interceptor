@@ -21,7 +21,7 @@ async function patchCORSServer() {
     
     const data = await fs.readFile(indexPath, 'utf8');
 
-    if (data.includes("ALLOWED_ORIGINS=false") && !data.includes(/ALLOWED_ORIGINS=\w\.IS_PROD_BUILD/g)) {
+    if (data.includes("ALLOWED_ORIGINS=false")) {
       console.log('Server is already patched');
       return;
     }
