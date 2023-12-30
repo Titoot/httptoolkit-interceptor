@@ -2,24 +2,35 @@ const path = require("path");
 const fs = require('fs').promises;
 const asar = require('@electron/asar');
 
+const fileExists = async path => !!(await fs.stat(path).catch(e => false));
+
 async function patchCORSServer() {
   try {
-    const folderPath = path.join(process.env.LOCALAPPDATA, 'httptoolkit-server', 'client');
-    const serverVersion = await fs.readdir(folderPath);
-    const indexPath = path.join(folderPath, serverVersion[0], 'bundle', 'index.js');
-
+    let folderPath = path.join(process.env.LOCALAPPDATA, 'httptoolkit-server', 'client');
+    let indexPath;
+    if(!(await fileExists(folderPath)))
+    {
+      folderPath = path.join(process.env.LOCALAPPDATA, 'Programs', 'httptoolkit', 'resources');
+      indexPath = path.join(folderPath, 'httptoolkit-server', 'bundle', 'index.js');
+    }
+    else
+    {
+      const serverVersion = await fs.readdir(folderPath);
+      indexPath = path.join(folderPath, serverVersion[0], 'bundle', 'index.js');
+    }
+    
     const data = await fs.readFile(indexPath, 'utf8');
 
-    if (data.includes("e.ALLOWED_ORIGINS=false") && !data.includes("e.ALLOWED_ORIGINS=e.IS_PROD_BUILD")) {
+    if (data.includes("ALLOWED_ORIGINS=false") && !data.includes(/ALLOWED_ORIGINS=\w\.IS_PROD_BUILD/g)) {
       console.log('Server is already patched');
       return;
     }
 
     console.log('Server is not patched, patching in process...');
 
-    const patchedData = data.replace(/e\.ALLOWED_ORIGINS=e\.IS_PROD_BUILD/g, 'e.ALLOWED_ORIGINS=false');
+    const patchedData = data.replace(/ALLOWED_ORIGINS=\w\.IS_PROD_BUILD/g, 'ALLOWED_ORIGINS=false');
 
-    if (!patchedData.includes("e.ALLOWED_ORIGINS=false")) {
+    if (!patchedData.includes("ALLOWED_ORIGINS=false")) {
       console.error('Server patching failed!');
       return;
     }
