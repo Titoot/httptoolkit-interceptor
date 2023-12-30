@@ -8,5 +8,6 @@ a nodejs tool made to intercept and imitate HTTP toolkit traffic to allow paid f
 ```bash
 git clone https://github.com/Titoot/httptoolkit-interceptor.git
 cd httptoolkit-interceptor
+npm i
 node .
 ```
